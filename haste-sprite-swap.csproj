@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <None Include="example.default.hastespriteswap.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="preview.jpg" CopyToOutputDirectory="PreserveNewest" />
     <None Include="img\sample_master_chief.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="img\sample_shadow_master_chief.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="img\sample_white_master_chief.png" CopyToOutputDirectory="PreserveNewest" />
