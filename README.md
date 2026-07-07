@@ -4,6 +4,8 @@ A Haste mod framework for replacing **player (Zoe/Courier) narrative sprites** �
 
 This mod only affects the narrative UI. It does not change in-game 3D models, NPC portraits, or UI icons.
 
+For general mod development information refer to the [Haste Mod Wiki](https://github.com/HasteModding/HasteModding/wiki/create-and-setup-a-workshop-item-for-your-mod).
+
 ## How it works
 
 1. Subscribe to or build this framework mod.
@@ -11,23 +13,6 @@ This mod only affects the narrative UI. It does not change in-game 3D models, NP
    - A `*.hastespriteswap.json` config at the **mod root**
    - PNG replacement images referenced by that config
 3. When dialogue shows the player, the mod swaps sprites on the narrative character layers.
-
-## Building the framework
-
-```bash
-dotnet build
-```
-
-Output:
-
-```
-bin/Debug/netstandard2.1/
-├── haste-sprite-swap.dll
-├── example.default.hastespriteswap.json   # sample config
-└── img/sample_master_chief.png            # sample body swap
-```
-
-Point your Steam Workshop item's **local override** at `bin/Debug/netstandard2.1`, then launch Haste.
 
 ## Extending it: making your own sprite pack
 
