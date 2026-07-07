@@ -114,6 +114,12 @@ internal static class SpriteSwapService
             }
         };
 
+        On.Landfall.Haste.InteractionCharacterFacialHolder.PlayReaction += (orig, self, reactionType) =>
+        {
+            orig(self, reactionType);
+            ApplyToDisplayedFace(self);
+        };
+
         Reload();
     }
 
@@ -414,10 +420,58 @@ internal static class SpriteSwapService
         foreach (var skin in skins)
         {
             ApplyToImages(skin.GetComponentsInChildren<Image>(true), replaced, cleared, failed);
-            ApplyToFacialHolders(skin.GetComponentsInChildren<InteractionCharacterFacialHolder>(true), replaced, cleared, failed);
+            ReplaceFacialArray(skin.FacialExpressionOverrides, replaced, cleared, failed);
+        }
+
+        var facialHolder = FindFacialHolderForHandler(handler);
+        if (facialHolder != null)
+        {
+            ApplyToFacialHolders([facialHolder], replaced, cleared, failed);
+        }
+        else
+        {
+            Debug.LogWarning($"{LogPrefix} No InteractionCharacterFacialHolder found above handler '{handler.name}'. Expression swaps were skipped.");
         }
 
         LogApplySummary(context, replaced, cleared, failed);
+    }
+
+    private static InteractionCharacterFacialHolder? FindFacialHolderForHandler(InteractionSkinHandler handler)
+    {
+        return handler.GetComponentInParent<InteractionCharacterFacialHolder>(true);
+    }
+
+    private static void ApplyToDisplayedFace(InteractionCharacterFacialHolder holder)
+    {
+        if (holder.m_face == null || holder.m_face.sprite == null || _activeSwaps.Count == 0)
+        {
+            return;
+        }
+
+        var courierHandler = FindCourierSkinHandler();
+        if (courierHandler == null || FindFacialHolderForHandler(courierHandler) != holder)
+        {
+            return;
+        }
+
+        if (!TryResolveSwap(holder.m_face.sprite.name, out var swap, out var matchedKey))
+        {
+            return;
+        }
+
+        if (swap.IsEmpty)
+        {
+            holder.m_face.sprite = GetEmptySprite();
+            holder.m_face.gameObject.SetActive(false);
+            return;
+        }
+
+        var result = TryLoadReplacementSprite(holder.m_face.sprite, swap, out var replacement, out _);
+        if (result == SwapApplyResult.Replaced)
+        {
+            holder.m_face.sprite = replacement!;
+            holder.m_face.gameObject.SetActive(true);
+        }
     }
 
     private static void LogApplySummary(string context, List<string> replaced, List<string> cleared, List<string> failed)
