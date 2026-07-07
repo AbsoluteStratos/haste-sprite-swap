@@ -212,18 +212,6 @@ Common messages:
 | `Could not reapply swaps: Courier narrative UI not found` | Normal on scenes without dialogue UI |
 | `No narrative sprites matched any active swap rules` | Config loaded, but nothing matched visible sprites |
 
-**Checklist if nothing changes:**
-
-1. Is this framework mod enabled?
-2. Is your `.hastespriteswap.json` at the **mod root**?
-3. Is the filename format correct? (`name.default.hastespriteswap.json`)
-4. Does the sprite key match exactly? (e.g. `Body_Default`, not `body_default`)
-5. Trigger **dialogue** — swaps only apply in the narrative UI, not in gameplay
-
-## Example included in this repo
-
-`example.default.hastespriteswap.json` swaps only the player body to `img/sample_master_chief.png`, with `overwriteAllSkins: true` so it applies across all body skin variants.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
