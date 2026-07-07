@@ -1,0 +1,26 @@
+{
+  "basePath": "img",
+  "overwriteAllSkins": false,
+  "swaps": {
+    "Body_Default": {
+      "file": "sample_master_chief.png"
+    },
+    "Body_White_Default": {
+      "file": "sample_white_master_chief.png"
+    },
+    "Body_Shadow_Default": {
+      "file": "sample_shadow_master_chief.png"
+    },
+    "Hair_Default": {},
+    "Hair_Shadow_Default": {},
+    "Hair_White_Default": {},
+    "Head_Default": {},
+    "Head_White_Default": {},
+    "Head_Shadow_Default": {},
+    "_0004_Expression_Happy": {},
+    "_0005_Expression_Confident": {},
+    "_0006_Expression_Uncertain": {},
+    "_0007_Expression_Shocked": {},
+    "_0008_Expression_Smile": {}
+  }
+}
