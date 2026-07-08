@@ -1,6 +1,7 @@
 {
   "basePath": "img",
   "overwriteAllSkins": false,
+  "name": "Master Chief",
   "swaps": {
     "Body_Default": {
       "file": "sample_master_chief.png"

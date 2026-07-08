@@ -8,6 +8,7 @@ using Landfall.Modding;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Zorro.Core.CLI;
@@ -82,6 +83,9 @@ internal static class SpriteSwapService
     private static Sprite? _emptySprite;
     private static readonly List<LoadedSpriteConfig> LoadedConfigs = [];
     private static Dictionary<string, ResolvedSwap> _activeSwaps = new(StringComparer.OrdinalIgnoreCase);
+    private static string? _activeDisplayName;
+    private static LocalizedString _originalCourierDisplayName = default!;
+    private static bool _savedOriginalCourierDisplayName;
 
     private enum SwapApplyResult
     {
@@ -134,6 +138,8 @@ internal static class SpriteSwapService
     {
         LoadedConfigs.Clear();
         _activeSwaps = BuildActiveSwaps();
+        _activeDisplayName = BuildActiveDisplayName();
+        ApplyCourierDisplayName();
     }
 
     private static void ScheduleReapply()
@@ -157,6 +163,7 @@ internal static class SpriteSwapService
         }
 
         Debug.Log($"{LogPrefix} Reapplying sprite swaps after scene load.");
+        ApplyCourierDisplayName();
         ApplyToSkinHandler(handler, requireCourier: false, context: "scene reapply");
     }
 
@@ -203,8 +210,15 @@ internal static class SpriteSwapService
 
         foreach (var config in LoadedConfigs)
         {
-            Debug.Log($"{LogPrefix} Status: config '{Path.GetFileName(config.ConfigPath)}' ({(config.SkinIndex == null ? "default" : $"skin {config.SkinIndex}")}, {config.Config.Swaps.Count} entries)");
+            var nameInfo = string.IsNullOrWhiteSpace(config.Config.Name)
+                ? string.Empty
+                : $", name='{config.Config.Name}'";
+            Debug.Log($"{LogPrefix} Status: config '{Path.GetFileName(config.ConfigPath)}' ({(config.SkinIndex == null ? "default" : $"skin {config.SkinIndex}")}, {config.Config.Swaps.Count} entries{nameInfo})");
         }
+
+        Debug.Log(string.IsNullOrWhiteSpace(_activeDisplayName)
+            ? $"{LogPrefix} Status: dialogue title unchanged (no active name override)."
+            : $"{LogPrefix} Status: dialogue title override active -> '{_activeDisplayName}'");
 
         LogActiveSwapSummary();
 
@@ -230,7 +244,18 @@ internal static class SpriteSwapService
         }
 
         LogActiveSwapSummary();
+        LogActiveDisplayNameSummary();
         ReapplyToCourier();
+    }
+
+    private static void LogActiveDisplayNameSummary()
+    {
+        if (string.IsNullOrWhiteSpace(_activeDisplayName))
+        {
+            return;
+        }
+
+        Debug.Log($"{LogPrefix} Will replace player dialogue title with '{_activeDisplayName}'.");
     }
 
     private static void LogActiveSwapSummary()
@@ -284,6 +309,54 @@ internal static class SpriteSwapService
         return merged;
     }
 
+    private static string? BuildActiveDisplayName()
+    {
+        var currentSkin = (int)SkinManager.GetBodySkinFromFacts();
+        string? displayName = null;
+
+        foreach (var group in LoadedConfigs.GroupBy(c => c.ModDirectory, StringComparer.OrdinalIgnoreCase))
+        {
+            var chosen = group.FirstOrDefault(c => c.SkinIndex == currentSkin)
+                ?? group.FirstOrDefault(c => c.SkinIndex == null);
+
+            if (chosen == null || string.IsNullOrWhiteSpace(chosen.Config.Name))
+            {
+                continue;
+            }
+
+            displayName = chosen.Config.Name;
+        }
+
+        return displayName;
+    }
+
+    private static void ApplyCourierDisplayName()
+    {
+        if (InteractionUI.Instance == null || InteractionUI.Instance.Courier == null)
+        {
+            return;
+        }
+
+        var courier = InteractionUI.Instance.Courier;
+        if (!_savedOriginalCourierDisplayName)
+        {
+            _originalCourierDisplayName = courier.DisplayName;
+            _savedOriginalCourierDisplayName = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(_activeDisplayName))
+        {
+            if (_savedOriginalCourierDisplayName)
+            {
+                courier.DisplayName = _originalCourierDisplayName;
+            }
+
+            return;
+        }
+
+        courier.DisplayName = new UnlocalizedString(_activeDisplayName);
+    }
+
     private static void DiscoverConfigs()
     {
         var foundAnyModDirectory = false;
@@ -298,8 +371,18 @@ internal static class SpriteSwapService
             }
 
             foundAnyModDirectory = true;
-            foreach (var configPath in Directory.GetFiles(modDirectory, $"*{ConfigSuffix}", SearchOption.TopDirectoryOnly))
+            var configPaths = Directory.GetFiles(modDirectory, $"*{ConfigSuffix}", SearchOption.TopDirectoryOnly);
+            var hasNonExampleConfig = configPaths.Any(path => !IsExampleConfig(Path.GetFileName(path)));
+
+            foreach (var configPath in configPaths)
             {
+                var fileName = Path.GetFileName(configPath);
+                if (hasNonExampleConfig && IsExampleConfig(fileName))
+                {
+                    Debug.Log($"{LogPrefix} Skipping example config '{fileName}' because another config exists in '{modDirectory}'.");
+                    continue;
+                }
+
                 foundAnyConfigFile = true;
                 TryLoadConfig(configPath, modDirectory);
             }
@@ -314,6 +397,10 @@ internal static class SpriteSwapService
             Debug.LogWarning($"{LogPrefix} Searched loaded mod directories but found no '*{ConfigSuffix}' files.");
         }
     }
+
+    private static bool IsExampleConfig(string fileName) =>
+        fileName.StartsWith("example.", StringComparison.OrdinalIgnoreCase)
+        && fileName.EndsWith(ConfigSuffix, StringComparison.OrdinalIgnoreCase);
 
     private static void TryLoadConfig(string configPath, string modDirectory)
     {
@@ -337,13 +424,19 @@ internal static class SpriteSwapService
             {
                 BasePath = root.Value<string>("basePath") ?? string.Empty,
                 OverwriteAllSkins = root.Value<bool?>("overwriteAllSkins") ?? false,
+                Name = root.Value<string>("name"),
                 Swaps = ParseSwaps(root["swaps"]),
             };
 
             LoadedConfigs.Add(new LoadedSpriteConfig(modDirectory, configPath, skinIndex, config));
             var clearCount = config.Swaps.Count(pair => string.IsNullOrWhiteSpace(pair.Value.File));
             var replaceCount = config.Swaps.Count - clearCount;
-            Debug.Log($"{LogPrefix} Loaded {(skinIndex == null ? "default" : $"skin {skinIndex}")} config from {configPath} ({replaceCount} replacement(s), {clearCount} clear(s), overwriteAllSkins={config.OverwriteAllSkins}).");
+            var nameInfo = string.IsNullOrWhiteSpace(config.Name) ? string.Empty : $", name='{config.Name}'";
+            Debug.Log($"{LogPrefix} Loaded {(skinIndex == null ? "default" : $"skin {skinIndex}")} config from {configPath} ({replaceCount} replacement(s), {clearCount} clear(s), overwriteAllSkins={config.OverwriteAllSkins}{nameInfo}).");
+            if (!string.IsNullOrWhiteSpace(config.Name))
+            {
+                Debug.Log($"{LogPrefix} Config '{fileName}' has a 'name' entry — will replace player dialogue title with '{config.Name}'.");
+            }
         }
         catch (Exception ex)
         {
@@ -760,6 +853,9 @@ internal sealed class SpriteSwapConfig
 
     [JsonProperty("overwriteAllSkins")]
     public bool OverwriteAllSkins { get; set; }
+
+    [JsonProperty("name")]
+    public string? Name { get; set; }
 
     [JsonProperty("swaps")]
     public Dictionary<string, SpriteSwapEntry> Swaps { get; set; } = new(StringComparer.OrdinalIgnoreCase);

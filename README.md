@@ -43,6 +43,7 @@ MyPack.4.hastespriteswap.json
 {
   "basePath": "",
   "overwriteAllSkins": true,
+  "name": "Master Chief",
   "swaps": {
     "Body_Default": {
       "file": "sprites/body.png"
@@ -61,8 +62,11 @@ MyPack.4.hastespriteswap.json
 |-------|-------------|
 | `basePath` | Optional folder prefix for all `file` paths, relative to your mod root |
 | `overwriteAllSkins` | If `true`, `Body_Default` also replaces `Body_Green`, `Body_Blue`, etc. Same for head/hair layers |
+| `name` | Optional. Replaces the **dialogue box title** for the player (default: `Zoe`). Does not change dialogue line text. Omit to keep the original name |
 | `swaps` | Maps **game sprite names** to replacement PNG paths, or `{}` to hide a layer |
 | `file` | Path to a `.png` inside your mod folder. Can also be a plain string: `"Body_Default": "sprites/body.png"` |
+
+> **Example config:** This framework ships with `example.default.hastespriteswap.json` for local testing. If your mod folder contains **any other** `*.hastespriteswap.json`, the example file is ignored automatically.
 
 Omit a sprite key to leave the original game art unchanged.
 
