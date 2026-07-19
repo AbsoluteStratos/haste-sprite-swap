@@ -18,7 +18,7 @@ For general mod development information refer to the [Haste Mod Wiki](https://gi
 
 You do **not** need to edit C# to add new sprites. Create a Workshop item (or local override folder) with a config + images.
 
-**This mod will look through other loaded mod's folder for configs.**
+**This mod will look through other loaded mod's folder for configs similar to the [SFX replacement mod](https://github.com/HasteModding/HasteModding/wiki/Replacing-Zoe's-voice-lines-(netux's-Vocal-SFX-Swap-method)).**
 
 ### 1. Create your config file
 
