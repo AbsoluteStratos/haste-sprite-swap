@@ -11,13 +11,13 @@ For general mod development information refer to the [Haste Mod Wiki](https://gi
 1. Subscribe to or build this framework mod.
 2. Ship a separate content mod (or use the same folder for local testing) with:
    - A `*.hastespriteswap.json` config at the **mod root**
-   - `haste-sprite-swap.dll` and `haste-sprite-swap.pdb`
    - PNG replacement images referenced by that config
 3. When dialogue shows the player, the mod swaps sprites on the narrative character layers.
 
 ## Extending it: making your own sprite pack
 
 You do **not** need to edit C# to add new sprites. Create a Workshop item (or local override folder) with a config + images.
+This mod will look through other loaded mod's folder for configs.
 
 ### 1. Create your config file
 
