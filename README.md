@@ -17,7 +17,8 @@ For general mod development information refer to the [Haste Mod Wiki](https://gi
 ## Extending it: making your own sprite pack
 
 You do **not** need to edit C# to add new sprites. Create a Workshop item (or local override folder) with a config + images.
-This mod will look through other loaded mod's folder for configs.
+
+**This mod will look through other loaded mod's folder for configs.**
 
 ### 1. Create your config file
 
