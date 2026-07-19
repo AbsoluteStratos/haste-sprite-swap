@@ -61,6 +61,8 @@ internal static class SpriteSwapService
         @"\.(?<skin>(?:default|\d+))\.hastespriteswap\.json$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex ZoeInDialoguePattern = new(@"\bZoe\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly struct ResolvedSwap
     {
         public readonly string File;
@@ -122,6 +124,12 @@ internal static class SpriteSwapService
         {
             orig(self, reactionType);
             ApplyToDisplayedFace(self);
+        };
+
+        On.Landfall.Haste.InteractionUI.ShowLine += (orig, self, line, character, isAbilityUnlock) =>
+        {
+            ReplaceZoeInDialogue(line);
+            orig(self, line, character, isAbilityUnlock);
         };
 
         Reload();
@@ -217,8 +225,8 @@ internal static class SpriteSwapService
         }
 
         Debug.Log(string.IsNullOrWhiteSpace(_activeDisplayName)
-            ? $"{LogPrefix} Status: dialogue title unchanged (no active name override)."
-            : $"{LogPrefix} Status: dialogue title override active -> '{_activeDisplayName}'");
+            ? $"{LogPrefix} Status: dialogue title and in-line name text unchanged (no active name override)."
+            : $"{LogPrefix} Status: dialogue title and in-line 'Zoe' text override active -> '{_activeDisplayName}'");
 
         LogActiveSwapSummary();
 
@@ -255,7 +263,22 @@ internal static class SpriteSwapService
             return;
         }
 
-        Debug.Log($"{LogPrefix} Will replace player dialogue title with '{_activeDisplayName}'.");
+        Debug.Log($"{LogPrefix} Will replace player dialogue title and in-line 'Zoe' text with '{_activeDisplayName}'.");
+    }
+
+    private static void ReplaceZoeInDialogue(PrintableLine line)
+    {
+        if (string.IsNullOrWhiteSpace(_activeDisplayName) || string.IsNullOrEmpty(line.line))
+        {
+            return;
+        }
+
+        if (!ZoeInDialoguePattern.IsMatch(line.line))
+        {
+            return;
+        }
+
+        line.line = ZoeInDialoguePattern.Replace(line.line, _activeDisplayName);
     }
 
     private static void LogActiveSwapSummary()
@@ -435,7 +458,7 @@ internal static class SpriteSwapService
             Debug.Log($"{LogPrefix} Loaded {(skinIndex == null ? "default" : $"skin {skinIndex}")} config from {configPath} ({replaceCount} replacement(s), {clearCount} clear(s), overwriteAllSkins={config.OverwriteAllSkins}{nameInfo}).");
             if (!string.IsNullOrWhiteSpace(config.Name))
             {
-                Debug.Log($"{LogPrefix} Config '{fileName}' has a 'name' entry — will replace player dialogue title with '{config.Name}'.");
+                Debug.Log($"{LogPrefix} Config '{fileName}' has a 'name' entry — will replace player dialogue title and in-line 'Zoe' text with '{config.Name}'.");
             }
         }
         catch (Exception ex)
