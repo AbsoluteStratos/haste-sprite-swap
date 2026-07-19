@@ -14,11 +14,14 @@ For general mod development information refer to the [Haste Mod Wiki](https://gi
    - PNG replacement images referenced by that config
 3. When dialogue shows the player, the mod swaps sprites on the narrative character layers.
 
-## Extending it: making your own sprite pack
+> [!IMPORTANT]
+> This mod scans **all loaded mod folders** for `*.hastespriteswap.json` configs and merges them at runtime — similar to the [SFX replacement mod](https://github.com/HasteModding/HasteModding/wiki/Replacing-Zoe's-voice-lines-(netux's-Vocal-SFX-Swap-method)). You can ship sprite packs as separate Workshop items; they do not need to live in this framework mod's folder.
+> You do **not** need to edit C# to add new sprites. Create a Workshop item (or local override folder) with a config + images.
 
-You do **not** need to edit C# to add new sprites. Create a Workshop item (or local override folder) with a config + images.
+## Guide: making your own sprite pack
 
-**This mod will look through other loaded mod folders for configs similar to the [SFX replacement mod](https://github.com/HasteModding/HasteModding/wiki/Replacing-Zoe's-voice-lines-(netux's-Vocal-SFX-Swap-method)).**
+
+
 
 ### 1. Create your config file
 
@@ -68,7 +71,7 @@ MyPack.4.hastespriteswap.json
 | `swaps` | Maps **game sprite names** to replacement PNG paths, or `{}` to hide a layer |
 | `file` | Path to a `.png` inside your mod folder. Can also be a plain string: `"Body_Default": "sprites/body.png"` |
 
-> **Example config:** This framework ships with `example.default.hastespriteswap.json` for local testing. If your mod folder contains **any other** `*.hastespriteswap.json`, the example file is ignored automatically.
+> **Example config:** This framework ships with `example.default.hastespriteswap.json` for local testing. If **any loaded mod** provides another `*.hastespriteswap.json`, all `example.*` configs are ignored. When multiple content mods define the same sprite key, the framework mod merges first and other mod folders win on conflicts.
 
 Omit a sprite key to leave the original game art unchanged.
 

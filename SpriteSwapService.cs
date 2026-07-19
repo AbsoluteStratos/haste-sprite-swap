@@ -88,6 +88,7 @@ internal static class SpriteSwapService
     private static string? _activeDisplayName;
     private static LocalizedString _originalCourierDisplayName = default!;
     private static bool _savedOriginalCourierDisplayName;
+    private static string? _ownModDirectory;
 
     private enum SwapApplyResult
     {
@@ -296,8 +297,44 @@ internal static class SpriteSwapService
         {
             var action = swap.Value.IsEmpty ? "clear" : $"replace -> {swap.Value.File}";
             var overwrite = swap.Value.OverwriteAllSkins ? ", overwriteAllSkins" : string.Empty;
-            Debug.Log($"{LogPrefix}   {swap.Key}: {action}{overwrite}");
+            Debug.Log($"{LogPrefix}   {swap.Key}: {action} (from '{swap.Value.ModDirectory}'){overwrite}");
         }
+    }
+
+    private static string? GetOwnModDirectory()
+    {
+        if (_ownModDirectory != null)
+        {
+            return _ownModDirectory;
+        }
+
+        var assemblyPath = typeof(SpriteSwapService).Assembly.Location;
+        if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            return null;
+        }
+
+        _ownModDirectory = Path.GetFullPath(Path.GetDirectoryName(assemblyPath) ?? string.Empty);
+        return _ownModDirectory;
+    }
+
+    private static IEnumerable<IGrouping<string, LoadedSpriteConfig>> GetConfigGroupsInMergeOrder()
+    {
+        return LoadedConfigs
+            .GroupBy(c => c.ModDirectory, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => IsOwnModDirectory(group.Key) ? 0 : 1)
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsOwnModDirectory(string modDirectory)
+    {
+        var ownDirectory = GetOwnModDirectory();
+        if (string.IsNullOrWhiteSpace(ownDirectory))
+        {
+            return false;
+        }
+
+        return Path.GetFullPath(modDirectory).Equals(Path.GetFullPath(ownDirectory), StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, ResolvedSwap> BuildActiveSwaps()
@@ -306,7 +343,7 @@ internal static class SpriteSwapService
         var currentSkin = (int)SkinManager.GetBodySkinFromFacts();
         var merged = new Dictionary<string, ResolvedSwap>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var group in LoadedConfigs.GroupBy(c => c.ModDirectory, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in GetConfigGroupsInMergeOrder())
         {
             var chosen = group.FirstOrDefault(c => c.SkinIndex == currentSkin)
                 ?? group.FirstOrDefault(c => c.SkinIndex == null);
@@ -337,7 +374,7 @@ internal static class SpriteSwapService
         var currentSkin = (int)SkinManager.GetBodySkinFromFacts();
         string? displayName = null;
 
-        foreach (var group in LoadedConfigs.GroupBy(c => c.ModDirectory, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in GetConfigGroupsInMergeOrder())
         {
             var chosen = group.FirstOrDefault(c => c.SkinIndex == currentSkin)
                 ?? group.FirstOrDefault(c => c.SkinIndex == null);
@@ -384,6 +421,7 @@ internal static class SpriteSwapService
     {
         var foundAnyModDirectory = false;
         var foundAnyConfigFile = false;
+        var allConfigPaths = new List<(string ModDirectory, string ConfigPath)>();
 
         foreach (var item in Modloader.LoadedItemDirectories)
         {
@@ -394,22 +432,36 @@ internal static class SpriteSwapService
             }
 
             foundAnyModDirectory = true;
-            var configPaths = Directory.GetFiles(modDirectory, $"*{ConfigSuffix}", SearchOption.TopDirectoryOnly);
-            var hasNonExampleConfig = configPaths.Any(path => !IsExampleConfig(Path.GetFileName(path)));
+            Debug.Log($"{LogPrefix} Scanning mod folder '{modDirectory}'.");
 
-            foreach (var configPath in configPaths)
+            foreach (var configPath in Directory.GetFiles(modDirectory, $"*{ConfigSuffix}", SearchOption.TopDirectoryOnly))
             {
-                var fileName = Path.GetFileName(configPath);
-                if (hasNonExampleConfig && IsExampleConfig(fileName))
-                {
-                    Debug.Log($"{LogPrefix} Skipping example config '{fileName}' because another config exists in '{modDirectory}'.");
-                    continue;
-                }
-
-                foundAnyConfigFile = true;
-                TryLoadConfig(configPath, modDirectory);
+                allConfigPaths.Add((modDirectory, configPath));
             }
         }
+
+        var hasNonExampleConfigAnywhere = allConfigPaths.Any(entry =>
+            !IsExampleConfig(Path.GetFileName(entry.ConfigPath)));
+
+        if (hasNonExampleConfigAnywhere)
+        {
+            Debug.Log($"{LogPrefix} Found at least one non-example config in loaded mods; example configs will be ignored.");
+        }
+
+        foreach (var (modDirectory, configPath) in allConfigPaths)
+        {
+            var fileName = Path.GetFileName(configPath);
+            if (hasNonExampleConfigAnywhere && IsExampleConfig(fileName))
+            {
+                Debug.Log($"{LogPrefix} Skipping example config '{fileName}' in '{modDirectory}' because another mod provides a config.");
+                continue;
+            }
+
+            foundAnyConfigFile = true;
+            TryLoadConfig(configPath, modDirectory);
+        }
+
+        Debug.Log($"{LogPrefix} Discovery complete: {Modloader.LoadedItemDirectories.Count} loaded item(s), {LoadedConfigs.Count} config file(s) accepted.");
 
         if (!foundAnyModDirectory)
         {
@@ -424,6 +476,31 @@ internal static class SpriteSwapService
     private static bool IsExampleConfig(string fileName) =>
         fileName.StartsWith("example.", StringComparison.OrdinalIgnoreCase)
         && fileName.EndsWith(ConfigSuffix, StringComparison.OrdinalIgnoreCase);
+
+    private static void LogExternalConfigBanner(
+        string modDirectory,
+        string configPath,
+        SpriteSwapConfig config,
+        int? skinIndex,
+        int replaceCount,
+        int clearCount)
+    {
+        const string border = "================================================================================";
+        var skinLabel = skinIndex == null ? "DEFAULT" : $"SKIN {skinIndex}";
+        var nameLine = string.IsNullOrWhiteSpace(config.Name)
+            ? "NAME OVERRIDE: (NONE)"
+            : $"NAME OVERRIDE: {config.Name}";
+
+        Debug.Log(border);
+        Debug.Log($"{LogPrefix} EXTERNAL SPRITE PACK CONFIG FOUND");
+        Debug.Log($"{LogPrefix} MOD FOLDER: {modDirectory}");
+        Debug.Log($"{LogPrefix} CONFIG FILE: {Path.GetFileName(configPath)}");
+        Debug.Log($"{LogPrefix} SKIN TARGET: {skinLabel}");
+        Debug.Log($"{LogPrefix} SWAPS: {replaceCount} REPLACEMENT(S), {clearCount} CLEAR(S)");
+        Debug.Log($"{LogPrefix} {nameLine}");
+        Debug.Log($"{LogPrefix} OVERWRITE ALL SKINS: {config.OverwriteAllSkins.ToString().ToUpperInvariant()}");
+        Debug.Log(border);
+    }
 
     private static void TryLoadConfig(string configPath, string modDirectory)
     {
@@ -456,6 +533,12 @@ internal static class SpriteSwapService
             var replaceCount = config.Swaps.Count - clearCount;
             var nameInfo = string.IsNullOrWhiteSpace(config.Name) ? string.Empty : $", name='{config.Name}'";
             Debug.Log($"{LogPrefix} Loaded {(skinIndex == null ? "default" : $"skin {skinIndex}")} config from {configPath} ({replaceCount} replacement(s), {clearCount} clear(s), overwriteAllSkins={config.OverwriteAllSkins}{nameInfo}).");
+
+            if (!IsOwnModDirectory(modDirectory))
+            {
+                LogExternalConfigBanner(modDirectory, configPath, config, skinIndex, replaceCount, clearCount);
+            }
+
             if (!string.IsNullOrWhiteSpace(config.Name))
             {
                 Debug.Log($"{LogPrefix} Config '{fileName}' has a 'name' entry — will replace player dialogue title and in-line 'Zoe' text with '{config.Name}'.");
