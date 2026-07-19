@@ -11,6 +11,7 @@ For general mod development information refer to the [Haste Mod Wiki](https://gi
 1. Subscribe to or build this framework mod.
 2. Ship a separate content mod (or use the same folder for local testing) with:
    - A `*.hastespriteswap.json` config at the **mod root**
+   - `haste-sprite-swap.dll` and `haste-sprite-swap.pdb`
    - PNG replacement images referenced by that config
 3. When dialogue shows the player, the mod swaps sprites on the narrative character layers.
 
